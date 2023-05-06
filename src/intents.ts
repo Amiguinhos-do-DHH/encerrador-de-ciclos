@@ -19,13 +19,9 @@ const Intents = {
   GuildScheduledEvents: 1 << 16,
   AutoModerationConfiguration: 1 << 20,
   AutoModerationExecution: 1 << 21,
-}
+};
 
-const intents = [
-  Intents.GuildMessageReactions,
-];
+const intents = [Intents.GuildMessageReactions];
 
 // https://discord.com/developers/docs/topics/gateway#receiving-events - Intents are bitwise values that can be ORed (|)
-const finalIntents = intents.reduce((accumulator, value) => accumulator | value)
-
-console.log(finalIntents)
+export const finalIntents = intents.reduce((accumulator, value) => accumulator | value);
