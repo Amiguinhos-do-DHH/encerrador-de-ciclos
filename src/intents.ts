@@ -1,5 +1,5 @@
 // https://discord.com/developers/docs/topics/gateway#list-of-intents
-const Intents = {
+export const intents = {
   Guilds: 1 << 0,
   GuildMembers: 1 << 1,
   GuildModeration: 1 << 2,
@@ -21,7 +21,8 @@ const Intents = {
   AutoModerationExecution: 1 << 21,
 };
 
-const intents = [Intents.GuildMessageReactions];
 
 // https://discord.com/developers/docs/topics/gateway#receiving-events - Intents are bitwise values that can be ORed (|)
-export const finalIntents = intents.reduce((accumulator, value) => accumulator | value);
+export function calculateIntents(intents: Array<number>) {
+  return intents.reduce((acc, val) => acc | val)
+}

@@ -1,5 +1,6 @@
 import z from "zod";
-import { identifySchema, gatewaySchema, dispatchSchema, helloSchema } from "./schemas/index.ts";
+import { heartbeatSchema, helloSchema, gatewaySchema, identifySchema, messageReactionAddSchema } from "./schemas/index.ts";
+import { calculateIntents, intents } from "./intents.ts";
 
 const discordUrl = process.env.DISCORD_URL;
 const discordToken = process.env.DISCORD_TOKEN;
@@ -7,8 +8,19 @@ const response = await fetch(`${discordUrl}/gateway/bot`, { headers: { Authoriza
 const jsonResponse = await response.json();
 const gatewayUrl = `${gatewaySchema.parse(jsonResponse).url}/?v=10&encoding=json`;
 
-const sentPayloadSchema = z.discriminatedUnion("op", [identifySchema]).brand<"SentPayload">();
+const envSchema = z.object({
+  DISCORD_URL: z.string().startsWith('https://discord.com/api/'),
+  DISCORD_TOKEN: z.string(),
+})
+
+const ENV = envSchema.parse({
+  DISCORD_URL: Bun.env.DISCORD_URL,
+  DISCORD_TOKEN: Bun.env.DISCORD_TOKEN,
+})
+
+const sentPayloadSchema = z.discriminatedUnion("op", [heartbeatSchema, identifySchema]).brand<"SentPayload">();
 type SentPayload = z.infer<typeof sentPayloadSchema>;
+const ws = new WebSocket(gatewayUrl);
 
 const receivedPayloadSchema = z
   .string()
@@ -24,11 +36,33 @@ const receivedPayloadSchema = z
       return z.NEVER;
     }
   })
-  .pipe(z.discriminatedUnion("op", [dispatchSchema, helloSchema]).brand<"ReceivedPayload">());
+  .pipe(z.discriminatedUnion("op", [messageReactionAddSchema, helloSchema]).brand<"ReceivedPayload">());
 type ReceivedPayload = z.infer<typeof receivedPayloadSchema>;
 
-const ws = new WebSocket(gatewayUrl);
+function sendIdentify(): SentPayload {
+  return sentPayloadSchema.parse({
+    op: 2,
+    d: {
+      token: ENV.DISCORD_TOKEN,
+      properties: {
+        os: 'linux',
+        browser: 'encerrador-de-ciclos',
+        device: 'encerrador-de-ciclos',
+      },
+      intents: calculateIntents([intents.GuildMessageReactions])
+    },
+  })
+}
+
+function handlePayload(receivedPayload: ReceivedPayload) {
+  switch(receivedPayload.op) {
+    case 0:
+      console.log(receivedPayload)
+  }
+}
 ws.addEventListener("message", (ev: MessageEvent<string>) => {
   const payload = receivedPayloadSchema.safeParse(ev.data);
-  console.log(payload);
+  if(payload.success) {
+    handlePayload(payload.data)
+  }
 });
