@@ -1,5 +1,5 @@
 import z from "zod";
-import { activitySchema } from "./activity.ts";
+import { activitySchema } from "./activity";
 
 export const gatewayPresenceUpdateSchema = z
   .object({

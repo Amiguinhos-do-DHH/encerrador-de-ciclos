@@ -1,5 +1,5 @@
 import z from "zod";
-import { snowflakeSchema } from "./snowflake.ts";
+import { snowflakeSchema } from "@discord";
 
 const localeSchema = z.union([
   z.literal('id'),        // Indonésio

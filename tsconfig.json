@@ -1,20 +1,30 @@
 {
   "compilerOptions": {
-    "lib": ["ESNext"],
+    "lib": ["esnext"],
     "module": "esnext",
     "target": "esnext",
-    "moduleResolution": "nodenext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "moduleDetection": "force",
     "strict": true,
     "downlevelIteration": true,
     "skipLibCheck": true,
     "jsx": "preserve",
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
-    "noEmit": true,
-    "allowImportingTsExtensions": true,
+    // "noEmit": true,
+    // "allowImportingTsExtensions": true,
     "allowJs": true,
+    "baseUrl": ".",
     "types": [
       "bun-types" // add Bun global
-    ]
+    ],
+    "paths": {
+      "@discord": ["src/discord/index.ts"],
+      "@discord/rest": ["src/discord/rest/index.ts"],
+      "@discord/gateway": ["src/discord/gateway/index.ts"],
+      "@discord/gateway/receivedPayload": ["src/discord/gateway/receivedPayload/index.ts"],
+      "@discord/gateway/sentPayload": ["src/discord/gateway/sentPayload/index.ts"]
+    }
   }
 }

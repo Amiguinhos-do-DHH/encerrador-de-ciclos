@@ -1,6 +1,6 @@
 import z from "zod";
-import { userSchema } from "./user.ts";
-import { snowflakeSchema } from "./snowflake.ts";
+import { userSchema } from "./user";
+import { snowflakeSchema } from "@discord";
 
 export const memberSchema = z.object({
   user: userSchema.optional(),

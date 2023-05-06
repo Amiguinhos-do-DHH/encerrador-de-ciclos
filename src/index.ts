@@ -1,7 +1,8 @@
 import z from "zod";
-import { heartbeatSchema, helloSchema, gatewaySchema, identifySchema, messageReactionAddSchema } from "./schemas/index.ts";
-import { calculateIntents, intents } from "./intents.ts";
-import { type } from "os";
+import { calculateIntents, intents } from "@discord/gateway";
+import { receivedPayloadSchema, ReceivedPayload } from "@discord/gateway/receivedPayload";
+import { gatewaySchema } from "@discord/rest";
+import { SentPayload, buildHeartbeatPayload, buildIdentifyPayload } from "@discord/gateway/sentPayload";
 
 const envSchema = z.object({
   DISCORD_URL: z.string().startsWith('https://discord.com/api/'),
@@ -17,54 +18,7 @@ const response = await fetch(`${ENV.DISCORD_URL}/gateway/bot`, { headers: { Auth
 const jsonResponse = await response.json();
 const gatewayUrl = `${gatewaySchema.parse(jsonResponse).url}/?v=10&encoding=json`;
 
-const sentPayloadSchema = z.discriminatedUnion("op", [heartbeatSchema, identifySchema]).brand<"SentPayload">();
 const ws = new WebSocket(gatewayUrl);
-
-const receivedPayloadSchema = z
-  .string()
-  .transform((val, ctx) => {
-    try {
-      return JSON.parse(val);
-    } catch {
-      ctx.addIssue({
-        code: "custom",
-        message: "Invalid JSON",
-        fatal: true,
-      });
-      return z.NEVER;
-    }
-  })
-  .pipe(z.discriminatedUnion("op", [messageReactionAddSchema, helloSchema])).brand<"ReceivedPayload">();
-type ReceivedPayload = z.infer<typeof receivedPayloadSchema>;
-
-const identifyPayload: SentPayload = {
-  op: 2,
-  d: {
-    token: ENV.DISCORD_TOKEN,
-    properties: {
-      os: 'linux',
-      browser: 'encerrador-de-ciclos',
-      device: 'encerrador-de-ciclos',
-    },
-    intents: calculateIntents([intents.GuildMessageReactions])
-  },
-}
-
-type SentPayload = {
-  op: 2,
-  d: {
-    token: string,
-    properties: {
-      os: 'linux',
-      browser: 'encerrador-de-ciclos',
-      device: 'encerrador-de-ciclos',
-    },
-    intents: number,
-  },
-} | {
-  op: 1,
-  d: number | null,
-}
 
 type State = {
   lastSequenceNumber: number | null,
@@ -74,15 +28,23 @@ const state: State = {
   lastSequenceNumber: null,
 }
 
-function buildHeartbeatPayload(): SentPayload {
-  return {
-    op: 1,
-    d: state.lastSequenceNumber,
-  }
-}
-
 function sendPayload(payload: SentPayload) {
   ws.send(JSON.stringify(payload));
+}
+
+function sendHeartbeat() {
+  const heartbeatPayload = buildHeartbeatPayload(state.lastSequenceNumber);
+  console.log(`Enviando heartbeat: ${heartbeatPayload.d}`)
+  sendPayload(heartbeatPayload);
+}
+
+function startHeartbeat(heartbeatInterval: number) {
+  const jitter = Math.random();
+
+  setTimeout(() => {
+    sendHeartbeat();
+    setInterval(() => sendHeartbeat(), heartbeatInterval);
+  }, heartbeatInterval * jitter);
 }
 
 function handlePayload(receivedPayload: ReceivedPayload) {
@@ -90,13 +52,15 @@ function handlePayload(receivedPayload: ReceivedPayload) {
   if (receivedPayload.op === 0) {
     state.lastSequenceNumber = receivedPayload.s;
   } else if (receivedPayload.op === 10) {
-    setInterval(() => sendPayload(buildHeartbeatPayload()), receivedPayload.d.heartbeat_interval);
+    startHeartbeat(receivedPayload.d.heartbeat_interval);
+    const identifyPayload = buildIdentifyPayload(ENV.DISCORD_TOKEN, calculateIntents([intents.GuildMessageReactions]));
     sendPayload(identifyPayload);
   }
 }
+
 ws.addEventListener("message", (ev: MessageEvent<string>) => {
   const payload = receivedPayloadSchema.safeParse(ev.data);
-  if(payload.success) {
-    handlePayload(payload.data)
+  if (payload.success) {
+    handlePayload(payload.data);
   }
 });

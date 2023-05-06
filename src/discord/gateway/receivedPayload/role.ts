@@ -1,6 +1,6 @@
 import z from "zod";
-import { snowflakeSchema } from "./snowflake.ts";
-import { roleTagsSchema } from "./roleTags.ts";
+import { snowflakeSchema } from "@discord";
+import { roleTagsSchema } from "./roleTags";
 
 export const roleSchema = z.object({
   id: snowflakeSchema,

@@ -1,7 +1,7 @@
 import z from "zod";
-import { emojiSchema } from "./emoji.ts";
-import { memberSchema } from "./member.ts";
-import { snowflakeSchema } from "./snowflake.ts";
+import { emojiSchema } from "./emoji";
+import { memberSchema } from "./member";
+import { snowflakeSchema } from "@discord";
 
 export const messageReactionAddSchema =  z.object({
   op: z.literal(0),

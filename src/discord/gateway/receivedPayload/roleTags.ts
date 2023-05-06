@@ -1,5 +1,5 @@
 import z from "zod";
-import { snowflakeSchema } from "./snowflake.ts";
+import { snowflakeSchema } from "@discord";
 
 // https://discord.com/developers/docs/topics/permissions#role-object-role-tags-structure
 export const roleTagsSchema = z.object({

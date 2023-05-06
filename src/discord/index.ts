@@ -1,0 +1,1 @@
+export { snowflakeSchema } from "./snowflake";

@@ -1,7 +1,7 @@
 import z from "zod";
-import { roleSchema } from "./role.ts";
-import { snowflakeSchema } from "./snowflake.ts";
-import { userSchema } from "./user.ts";
+import { roleSchema } from "./role";
+import { snowflakeSchema } from "@discord";
+import { userSchema } from "./user";
 
 export const emojiSchema = z.object({
   id: snowflakeSchema.nullable(),
