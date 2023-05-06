@@ -1,6 +1,7 @@
 import z from "zod";
 import { heartbeatSchema, helloSchema, gatewaySchema, identifySchema, messageReactionAddSchema } from "./schemas/index.ts";
 import { calculateIntents, intents } from "./intents.ts";
+import { type } from "os";
 
 const envSchema = z.object({
   DISCORD_URL: z.string().startsWith('https://discord.com/api/'),
@@ -17,7 +18,6 @@ const jsonResponse = await response.json();
 const gatewayUrl = `${gatewaySchema.parse(jsonResponse).url}/?v=10&encoding=json`;
 
 const sentPayloadSchema = z.discriminatedUnion("op", [heartbeatSchema, identifySchema]).brand<"SentPayload">();
-type SentPayload = z.infer<typeof sentPayloadSchema>;
 const ws = new WebSocket(gatewayUrl);
 
 const receivedPayloadSchema = z
@@ -34,28 +34,64 @@ const receivedPayloadSchema = z
       return z.NEVER;
     }
   })
-  .pipe(z.discriminatedUnion("op", [messageReactionAddSchema, helloSchema]).brand<"ReceivedPayload">());
+  .pipe(z.discriminatedUnion("op", [messageReactionAddSchema, helloSchema])).brand<"ReceivedPayload">();
 type ReceivedPayload = z.infer<typeof receivedPayloadSchema>;
 
-function sendIdentify(): SentPayload {
-  return sentPayloadSchema.parse({
-    op: 2,
-    d: {
-      token: ENV.DISCORD_TOKEN,
-      properties: {
-        os: 'linux',
-        browser: 'encerrador-de-ciclos',
-        device: 'encerrador-de-ciclos',
-      },
-      intents: calculateIntents([intents.GuildMessageReactions])
+const identifyPayload: SentPayload = {
+  op: 2,
+  d: {
+    token: ENV.DISCORD_TOKEN,
+    properties: {
+      os: 'linux',
+      browser: 'encerrador-de-ciclos',
+      device: 'encerrador-de-ciclos',
     },
-  })
+    intents: calculateIntents([intents.GuildMessageReactions])
+  },
+}
+
+type SentPayload = {
+  op: 2,
+  d: {
+    token: string,
+    properties: {
+      os: 'linux',
+      browser: 'encerrador-de-ciclos',
+      device: 'encerrador-de-ciclos',
+    },
+    intents: number,
+  },
+} | {
+  op: 1,
+  d: number | null,
+}
+
+type State = {
+  lastSequenceNumber: number | null,
+}
+
+const state: State = {
+  lastSequenceNumber: null,
+}
+
+function buildHeartbeatPayload(): SentPayload {
+  return {
+    op: 1,
+    d: state.lastSequenceNumber,
+  }
+}
+
+function sendPayload(payload: SentPayload) {
+  ws.send(JSON.stringify(payload));
 }
 
 function handlePayload(receivedPayload: ReceivedPayload) {
-  switch(receivedPayload.op) {
-    case 0:
-      console.log(receivedPayload)
+  console.log(receivedPayload);
+  if (receivedPayload.op === 0) {
+    state.lastSequenceNumber = receivedPayload.s;
+  } else if (receivedPayload.op === 10) {
+    setInterval(() => sendPayload(buildHeartbeatPayload()), receivedPayload.d.heartbeat_interval);
+    sendPayload(identifyPayload);
   }
 }
 ws.addEventListener("message", (ev: MessageEvent<string>) => {
