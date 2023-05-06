@@ -2,12 +2,6 @@ import z from "zod";
 import { heartbeatSchema, helloSchema, gatewaySchema, identifySchema, messageReactionAddSchema } from "./schemas/index.ts";
 import { calculateIntents, intents } from "./intents.ts";
 
-const discordUrl = process.env.DISCORD_URL;
-const discordToken = process.env.DISCORD_TOKEN;
-const response = await fetch(`${discordUrl}/gateway/bot`, { headers: { Authorization: `Bot ${discordToken}` } });
-const jsonResponse = await response.json();
-const gatewayUrl = `${gatewaySchema.parse(jsonResponse).url}/?v=10&encoding=json`;
-
 const envSchema = z.object({
   DISCORD_URL: z.string().startsWith('https://discord.com/api/'),
   DISCORD_TOKEN: z.string(),
@@ -17,6 +11,10 @@ const ENV = envSchema.parse({
   DISCORD_URL: Bun.env.DISCORD_URL,
   DISCORD_TOKEN: Bun.env.DISCORD_TOKEN,
 })
+
+const response = await fetch(`${ENV.DISCORD_URL}/gateway/bot`, { headers: { Authorization: `Bot ${ENV.DISCORD_TOKEN}` } });
+const jsonResponse = await response.json();
+const gatewayUrl = `${gatewaySchema.parse(jsonResponse).url}/?v=10&encoding=json`;
 
 const sentPayloadSchema = z.discriminatedUnion("op", [heartbeatSchema, identifySchema]).brand<"SentPayload">();
 type SentPayload = z.infer<typeof sentPayloadSchema>;

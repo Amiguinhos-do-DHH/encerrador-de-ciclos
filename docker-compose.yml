@@ -1,0 +1,12 @@
+version: '3'
+services:
+  bot:
+    image: oven/bun:0.5
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+    command: bash -c "bun install && bun src/index.ts"
+    env_file:
+      - .env
