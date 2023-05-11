@@ -21,8 +21,7 @@ export const intents = {
   AutoModerationExecution: 1 << 21,
 };
 
-
 // https://discord.com/developers/docs/topics/gateway#receiving-events - Intents are bitwise values that can be ORed (|)
 export function calculateIntents(intents: Array<number>) {
-  return intents.reduce((acc, val) => acc | val)
+  return intents.reduce((acc, val) => acc | val);
 }
