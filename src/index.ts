@@ -48,7 +48,7 @@ function startHeartbeat(heartbeatInterval: number) {
 }
 
 function handlePayload(receivedPayload: ReceivedPayload) {
-  console.log(receivedPayload);
+  // console.log(receivedPayload);
   if (receivedPayload.op === 0) {
     state.lastSequenceNumber = receivedPayload.s;
   } else if (receivedPayload.op === 10) {
@@ -59,6 +59,7 @@ function handlePayload(receivedPayload: ReceivedPayload) {
 }
 
 ws.addEventListener("message", (ev: MessageEvent<string>) => {
+  console.log(ev.data);
   const payload = receivedPayloadSchema.safeParse(ev.data);
   if (payload.success) {
     handlePayload(payload.data);

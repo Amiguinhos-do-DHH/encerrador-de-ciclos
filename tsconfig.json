@@ -22,7 +22,8 @@
       "@discord/gateway": ["src/discord/gateway/index.ts"],
       "@discord/gateway/receivedPayload": ["src/discord/gateway/receivedPayload/index.ts"],
       "@discord/gateway/sentPayload": ["src/discord/gateway/sentPayload/index.ts"],
-      "@discord/gateway/helpers": ["src/discord/gateway/helpers/index.ts"]
+      "@discord/gateway/helpers": ["src/discord/gateway/helpers/index.ts"],
+      "@helpers": ["src/helpers/index.ts"],
     }
   }
 }
