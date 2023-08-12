@@ -22,46 +22,88 @@ const jsonResponse = await response.json();
 console.log(jsonResponse);
 const gatewayUrl = `${gatewaySchema.parse(jsonResponse).url}/?v=10&encoding=json`;
 
-const ws = new WebSocket(gatewayUrl);
-
 type State = {
   lastSequenceNumber: number | null;
+  reconnectIntervalTimer: Timer | null;
+  heartbeatIntervalTimer: Timer | null;
+  webSocket: WebSocket | null;
 };
 
 const state: State = {
   lastSequenceNumber: null,
+  reconnectIntervalTimer: null,
+  heartbeatIntervalTimer: null,
+  webSocket: null,
 };
 
 function sendHeartbeat() {
   const heartbeatPayload = buildHeartbeatPayload(state.lastSequenceNumber);
   console.log(`Enviando heartbeat: ${heartbeatPayload.d}`);
-  sendPayload(ws, heartbeatPayload);
+  const time1 = new Date();
+  console.log("time 1:", time1.toLocaleString('pt-BR'));
+  if (state.webSocket) {
+    sendPayload(state.webSocket, heartbeatPayload);
+  }
 }
 
 function startHeartbeat(heartbeatInterval: number) {
   const jitter = Math.random();
 
   setTimeout(() => {
+    state.reconnectIntervalTimer = setInterval(reconnect, heartbeatInterval);
     sendHeartbeat();
-    setInterval(() => sendHeartbeat(), heartbeatInterval);
+    state.heartbeatIntervalTimer = setInterval(sendHeartbeat, heartbeatInterval);
   }, heartbeatInterval * jitter);
+}
+
+function reconnect() {
+  // todo: DHH vai refatorar os if's
+  if (state.heartbeatIntervalTimer) {
+    clearInterval(state.heartbeatIntervalTimer);
+  }
+  if (state.reconnectIntervalTimer) {
+    clearInterval(state.reconnectIntervalTimer);
+  }
+  if (state.webSocket) {
+    state.webSocket.close();
+  }
+  connect();
+}
+
+function connect() {
+  state.webSocket = new WebSocket(gatewayUrl);
+  state.webSocket.addEventListener("message", handleMessage);
 }
 
 function handlePayload(receivedPayload: ReceivedPayload) {
   // console.log(receivedPayload);
-  if (receivedPayload.op === 0) {
-    state.lastSequenceNumber = receivedPayload.s;
-  } else if (receivedPayload.op === 10) {
-    startHeartbeat(receivedPayload.d.heartbeat_interval);
-    const identifyPayload = buildIdentifyPayload(ENV.DISCORD_TOKEN, calculateIntents([intents.GuildMessageReactions]));
-    sendPayload(ws, identifyPayload);
+  state.lastSequenceNumber = receivedPayload.s;
+  switch (receivedPayload.op) {
+    // case 0:
+      // todo: DHH vai refatorar o case 0 para quando tiver reações
+    case 10:
+      startHeartbeat(receivedPayload.d.heartbeat_interval);
+      const identifyPayload = buildIdentifyPayload(ENV.DISCORD_TOKEN, calculateIntents([intents.GuildMessageReactions]));
+      if (state.webSocket) {
+        sendPayload(state.webSocket, identifyPayload);
+      }
+      break;
+    case 11:
+      if (state.reconnectIntervalTimer) {
+        clearInterval(state.reconnectIntervalTimer);
+      }
+      break;
   }
 }
 
-ws.addEventListener("message", (ev: MessageEvent<string>) => {
-  console.log(ev.data);
-  const payload = receivedPayloadSchema.safeParse(ev.data);
+function handleMessage(message: MessageEvent<string>) {
+  const payload = receivedPayloadSchema.safeParse(message.data);
+  console.log(message.data);
+  const time2 = new Date();
+  console.log("time 2:", time2.toLocaleString('pt-BR'));
   if (payload.success) {
     handlePayload(payload.data);
   }
-});
+}
+
+connect();
