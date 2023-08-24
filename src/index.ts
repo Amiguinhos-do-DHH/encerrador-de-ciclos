@@ -27,6 +27,7 @@ type State = {
   reconnectIntervalTimer: Timer | null;
   heartbeatIntervalTimer: Timer | null;
   webSocket: WebSocket | null;
+  shouldReconnect: boolean;
 };
 
 const state: State = {
@@ -34,76 +35,67 @@ const state: State = {
   reconnectIntervalTimer: null,
   heartbeatIntervalTimer: null,
   webSocket: null,
+  shouldReconnect: true,
 };
-
-function sendHeartbeat() {
-  const heartbeatPayload = buildHeartbeatPayload(state.lastSequenceNumber);
-  console.log(`Enviando heartbeat: ${heartbeatPayload.d}`);
-  const time1 = new Date();
-  console.log("time 1:", time1.toLocaleString('pt-BR'));
-  if (state.webSocket) {
-    sendPayload(state.webSocket, heartbeatPayload);
-  }
-}
-
-function startHeartbeat(heartbeatInterval: number) {
-  const jitter = Math.random();
-
-  setTimeout(() => {
-    state.reconnectIntervalTimer = setInterval(reconnect, heartbeatInterval);
-    sendHeartbeat();
-    state.heartbeatIntervalTimer = setInterval(sendHeartbeat, heartbeatInterval);
-  }, heartbeatInterval * jitter);
-}
-
-function reconnect() {
-  // todo: DHH vai refatorar os if's
-  if (state.heartbeatIntervalTimer) {
-    clearInterval(state.heartbeatIntervalTimer);
-  }
-  if (state.reconnectIntervalTimer) {
-    clearInterval(state.reconnectIntervalTimer);
-  }
-  if (state.webSocket) {
-    state.webSocket.close();
-  }
-  connect();
-}
 
 function connect() {
   state.webSocket = new WebSocket(gatewayUrl);
   state.webSocket.addEventListener("message", handleMessage);
 }
 
-function handlePayload(receivedPayload: ReceivedPayload) {
-  // console.log(receivedPayload);
-  state.lastSequenceNumber = receivedPayload.s;
-  switch (receivedPayload.op) {
-    // case 0:
-      // todo: DHH vai refatorar o case 0 para quando tiver reações
-    case 10:
-      startHeartbeat(receivedPayload.d.heartbeat_interval);
-      const identifyPayload = buildIdentifyPayload(ENV.DISCORD_TOKEN, calculateIntents([intents.GuildMessageReactions]));
-      if (state.webSocket) {
-        sendPayload(state.webSocket, identifyPayload);
-      }
-      break;
-    case 11:
-      if (state.reconnectIntervalTimer) {
-        clearInterval(state.reconnectIntervalTimer);
-      }
-      break;
-  }
-}
-
 function handleMessage(message: MessageEvent<string>) {
   const payload = receivedPayloadSchema.safeParse(message.data);
   console.log(message.data);
   const time2 = new Date();
-  console.log("time 2:", time2.toLocaleString('pt-BR'));
-  if (payload.success) {
-    handlePayload(payload.data);
+  console.log("time 2:", time2.toLocaleString("pt-BR"));
+  if (payload.success) handlePayload(payload.data);
+}
+
+function handlePayload(receivedPayload: ReceivedPayload) {
+  state.lastSequenceNumber = receivedPayload.s;
+  switch (receivedPayload.op) {
+    // case 0:
+    // todo: DHH vai refatorar o case 0 para quando tiver reações
+    case 10:
+      startHeartbeat(receivedPayload.d.heartbeat_interval);
+      const identifyPayload = buildIdentifyPayload(
+        ENV.DISCORD_TOKEN,
+        calculateIntents([intents.GuildMessageReactions])
+      );
+      if (state.webSocket) sendPayload(state.webSocket, identifyPayload);
+      break;
+    case 11:
+      state.shouldReconnect = false;
+      break;
   }
+}
+
+function startHeartbeat(heartbeatInterval: number) {
+  const jitter = Math.random();
+  setTimeout(() => {
+    sendHeartbeat();
+    state.reconnectIntervalTimer = setInterval(() => {
+      if (state.shouldReconnect) reconnect();
+      state.shouldReconnect = true;
+    }, heartbeatInterval);
+    state.heartbeatIntervalTimer = setInterval(sendHeartbeat, heartbeatInterval);
+  }, heartbeatInterval * jitter);
+}
+
+function sendHeartbeat() {
+  const heartbeatPayload = buildHeartbeatPayload(state.lastSequenceNumber);
+  console.log(`Enviando heartbeat: ${heartbeatPayload.d}`);
+  const time1 = new Date();
+  console.log("time 1:", time1.toLocaleString("pt-BR"));
+  if (state.webSocket) sendPayload(state.webSocket, heartbeatPayload);
+}
+
+function reconnect() {
+  // todo: DHH vai refatorar os if's
+  if (state.heartbeatIntervalTimer) clearInterval(state.heartbeatIntervalTimer);
+  if (state.reconnectIntervalTimer) clearInterval(state.reconnectIntervalTimer);
+  if (state.webSocket) state.webSocket.close();
+  connect();
 }
 
 connect();
