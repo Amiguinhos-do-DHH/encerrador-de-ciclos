@@ -2,8 +2,6 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
@@ -24,19 +22,3 @@ jobs:
 
       - name: Run tests
         run: bun test
-
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Cloning repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: Push to dokku
-        uses: dokku/github-action@master
-        with:
-          branch: 'main'
-          git_remote_url: 'ssh://dokku@3.87.28.96:22/encerrador-de-ciclos'
-          ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
