@@ -6,20 +6,19 @@ import { sendPayload } from "@discord/gateway/helpers";
 import { gatewaySchema } from "@discord/rest";
 
 const envSchema = z.object({
-  DISCORD_URL: z.string().startsWith("https://discord.com/api/"),
   DISCORD_TOKEN: z.string(),
 });
 
 const ENV = envSchema.parse({
-  DISCORD_URL: Bun.env.DISCORD_URL,
   DISCORD_TOKEN: Bun.env.DISCORD_TOKEN,
 });
 
-const response = await fetch(`${ENV.DISCORD_URL}/gateway/bot`, {
+const response = await fetch("https://discord.com/api/v10/gateway/bot", {
   headers: { Authorization: `Bot ${ENV.DISCORD_TOKEN}` },
 });
+
 const jsonResponse = await response.json();
-console.log(jsonResponse);
+
 const gatewayUrl = `${gatewaySchema.parse(jsonResponse).url}/?v=10&encoding=json`;
 
 type State = {
@@ -40,22 +39,19 @@ const state: State = {
 
 function connect() {
   state.webSocket = new WebSocket(gatewayUrl);
-  state.webSocket.addEventListener("message", handleMessage);
-}
-
-function handleMessage(message: MessageEvent<string>) {
-  const payload = receivedPayloadSchema.safeParse(message.data);
-  console.log(message.data);
-  const time2 = new Date();
-  console.log("time 2:", time2.toLocaleString("pt-BR"));
-  if (payload.success) handlePayload(payload.data);
+  state.webSocket.addEventListener("message", (message: MessageEvent<string>) => {
+    const payload = receivedPayloadSchema.safeParse(message.data);
+    console.log(message.data);
+    if (payload.success) handlePayload(payload.data);
+  });
+  state.webSocket.addEventListener("close", reconnect);
 }
 
 function handlePayload(receivedPayload: ReceivedPayload) {
-  state.lastSequenceNumber = receivedPayload.s;
   switch (receivedPayload.op) {
-    // case 0:
-    // todo: DHH vai refatorar o case 0 para quando tiver reações
+    case 0:
+      state.lastSequenceNumber = receivedPayload.s;
+      break;
     case 10:
       startHeartbeat(receivedPayload.d.heartbeat_interval);
       const identifyPayload = buildIdentifyPayload(
@@ -75,7 +71,7 @@ function startHeartbeat(heartbeatInterval: number) {
   setTimeout(() => {
     sendHeartbeat();
     state.reconnectIntervalTimer = setInterval(() => {
-      if (state.shouldReconnect) reconnect();
+      if (state.shouldReconnect && state.webSocket) state.webSocket.close();
       state.shouldReconnect = true;
     }, heartbeatInterval);
     state.heartbeatIntervalTimer = setInterval(sendHeartbeat, heartbeatInterval);
@@ -85,8 +81,6 @@ function startHeartbeat(heartbeatInterval: number) {
 function sendHeartbeat() {
   const heartbeatPayload = buildHeartbeatPayload(state.lastSequenceNumber);
   console.log(`Enviando heartbeat: ${heartbeatPayload.d}`);
-  const time1 = new Date();
-  console.log("time 1:", time1.toLocaleString("pt-BR"));
   if (state.webSocket) sendPayload(state.webSocket, heartbeatPayload);
 }
 
@@ -94,7 +88,6 @@ function reconnect() {
   // todo: DHH vai refatorar os if's
   if (state.heartbeatIntervalTimer) clearInterval(state.heartbeatIntervalTimer);
   if (state.reconnectIntervalTimer) clearInterval(state.reconnectIntervalTimer);
-  if (state.webSocket) state.webSocket.close();
   connect();
 }
 
